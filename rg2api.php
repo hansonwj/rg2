@@ -61,6 +61,8 @@
   } elseif ($_SERVER['REQUEST_METHOD'] == 'POST') {
       if ($type == 'uploadmapfile') {
           map::uploadMapFile();
+      } else if ($type == 'parseXML'){
+        parseResultsXMLv3();
       } else {
           handlePostRequest($type, $id);
       }
@@ -205,6 +207,90 @@ function handleGetRequest($type, $id)
         header("Content-type: application/json");
         echo "{\"data\":" .$output. "}";
     }
+}
+
+
+function parseResultsXMLv3()
+{
+// Uncomment to require login
+//    $write = array();
+//    $write["ok"] = false;
+//    $write["status_msg"] = "Map upload failed.";
+//    $data = new stdClass();
+//    $data->x = $_POST["x"];
+//    $data->y = $_POST["y"];
+//    if (!user::logIn($data)) {
+//       $write["status_msg"] = "Login failed.";
+//    } else {
+        $file = $_FILES["xml"]["tmp_name"];
+
+        $xml_string = file_get_contents($file);
+        $ResultList = simplexml_load_string($xml_string);
+
+        $results = [];
+
+        if($ResultList['iofVersion'] != '3.0'){
+          echo "Not an iof version 3.0 xml";
+        } else {
+
+          //loop through classes
+          foreach($ResultList->ClassResult as $C){
+            $class_temp = $C->Class->Name;
+            $class = trim(preg_replace('[\n\r]', '', $class_temp));
+            $classid = ''.$C->Class->Id;
+
+            $dbid_index = 0;
+
+            //loop through personresults
+            foreach($C->PersonResult as $PR){
+              $dbid = ''.$PR->Person->Id;
+              $nm =  $PR->Person->Name->Given.' '.$PR->Person->Name->Family;
+              $name = trim(preg_replace('[\n\r]', '', $nm));
+              
+              //not sure why, when adding to array was creating nested array
+              //resolved by adding to empty string
+              $position=''.$PR->Result->Position;
+              $seconds=$PR->Result->Time;
+              $starttime_str=''.$PR->Result->StartTime;
+              $status=''.$PR->Result->Status;
+
+              //Change time to HH:mm:ss
+              $time = floor($seconds/60) . gmdate(':s', $seconds%3600);
+
+              //use index if dbid isn't available
+              if (strlen($dbid)<1){
+                $dbid = $dbid_index;
+              }
+
+              //change starttime to seconds
+              $starttime_sub = substr($starttime_str, 11, 8);
+              sscanf($starttime_sub, "%d:%d:%d", $hours, $minutes, $seconds);
+              $starttime = isset($seconds) ? $hours * 3600 + $minutes * 60 + $seconds : $hours * 60 + $minutes;
+
+
+              $splits = '';
+              //loop through splits
+              foreach ($PR->Result->SplitTime as $ST){
+                $splits.';'.$ST->Time;
+              }
+
+              $result = array('course'=>$class, 'name'=>$name, 'dbid'=>$dbid,
+                              'position'=>$position, 'status'=>$status, 'time'=>$time,
+                              'starttime'=>$starttime, 'splits'=>ltrim($splits, ';'), 'controls'=>sizeof($PR->Result->SplitTime),
+                              'courseid'=>intval($classid));
+
+              array_push($results, $result);
+
+              $dbid_index = $dbid_index+1;
+
+            }
+
+          }
+
+          echo json_encode($results);
+
+        }
+  //  }
 }
 
 function validateCache($id)

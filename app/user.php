@@ -33,6 +33,30 @@ class user
         return $ok;
     }
 
+    public static function apiLogIn($data)
+    {
+        if (isset($data->x)) {
+            $userdetails = self::extractString($data->x);
+        } else {
+            $userdetails = "anon";
+            $cookie = "none";
+        }
+        $ok = true;
+        $keksi = trim(file_get_contents(KARTAT_DIRECTORY."keksi.txt"));
+        //utils::rg2log("logIn ".$userdetails." ".$cookie);
+        if (file_exists(KARTAT_DIRECTORY."rg2userinfo.txt")) {
+            $saved_user = trim(file_get_contents(KARTAT_DIRECTORY."rg2userinfo.txt"));
+            $temp = crypt($userdetails, $saved_user);
+            if ($temp != $saved_user) {
+                utils::rg2log("User details incorrect. ".$temp." : ".$saved_user);
+                $ok = false;
+                echo "{\"error\": \"User details incorrect\"}";
+            } else {
+                echo "{\"keksi\":" .$keksi. "}";
+            }  
+        }
+    }
+
     // Mickey Mouse function to extract user name and password
     // just avoids plain text transmission for now so a bit better than RG1
     private static function extractString($data)

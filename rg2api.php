@@ -58,12 +58,16 @@
 
   if ($_SERVER['REQUEST_METHOD'] == 'GET') {
       handleGetRequest($type, $id);
+
   } elseif ($_SERVER['REQUEST_METHOD'] == 'POST') {
       if ($type == 'uploadmapfile') {
           map::uploadMapFile();
       } else if ($type == 'parseXML'){
         parseResultsXMLv3();
-      } else {
+      } else if ($type == 'apilogin'){
+        $data = json_decode(file_get_contents('php://input'));
+        user::apiLogIn($data);
+      }else {
           handlePostRequest($type, $id);
       }
   } else {
@@ -277,7 +281,7 @@ function parseResultsXMLv3()
               $result = array('course'=>$class, 'name'=>$name, 'dbid'=>$dbid,
                               'position'=>$position, 'status'=>$status, 'time'=>$time,
                               'starttime'=>$starttime, 'splits'=>ltrim($splits, ';'), 'controls'=>sizeof($PR->Result->SplitTime),
-                              'courseid'=>intval($classid));
+                              'courseid'=>intval($classid), 'variantid'=>'');
 
               array_push($results, $result);
 
@@ -287,7 +291,7 @@ function parseResultsXMLv3()
 
           }
 
-          echo json_encode($results);
+          return json_encode($results);
 
         }
   //  }
